@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Track Your Ambulance — DrX Consult</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { background: #f0f4f8; font-family: 'Segoe UI', sans-serif; min-height: 100vh; }
+    .topbar { background: #1a56db; color: #fff; padding: 14px 24px; }
+    .topbar h1 { font-size: 18px; font-weight: 700; }
+    .topbar p { font-size: 12px; opacity: 0.8; margin-top: 2px; }
+    .container { max-width: 520px; margin: 30px auto; padding: 0 16px; }
+    .lookup-card { background: #fff; border-radius: 12px; padding: 24px; box-shadow: 0 1px 4px rgba(0,0,0,0.08); margin-bottom: 20px; }
+    .lookup-card h2 { font-size: 15px; font-weight: 700; margin-bottom: 14px; }
+    .form-group { margin-bottom: 12px; }
+    .form-group label { display: block; font-size: 12px; color: #6b7280; margin-bottom: 4px; }
+    .form-group input { width: 100%; border: 1px solid #d1d5db; border-radius: 7px; padding: 9px 12px; font-size: 14px; outline: none; }
+    .form-group input:focus { border-color: #1a56db; }
+    .btn { width: 100%; background: #1a56db; color: #fff; border: none; border-radius: 8px; padding: 11px; font-size: 14px; font-weight: 600; cursor: pointer; }
+    .btn:hover { opacity: 0.9; }
+    #tracker-container { display: none; }
+    .note { background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 8px; padding: 10px 14px; font-size: 12px; color: #1e40af; margin-bottom: 14px; }
+  </style>
+</head>
+<body>
+  <div class="topbar">
+    <h1>🚑 Track Your Ambulance</h1>
+    <p>DrX Consult — Real-time ambulance tracking</p>
+  </div>
+
+  <div class="container">
+    <div class="lookup-card" id="lookup-card">
+      <h2>Enter Your Booking ID</h2>
+      <div class="note">Your booking ID was sent to you via SMS/email when you booked through DrX Consult.</div>
+      <div class="form-group">
+        <label>Booking ID</label>
+        <input type="text" id="booking-id-input" placeholder="e.g. BK-1234567890" />
+      </div>
+      <button class="btn" onclick="startTracking()">🔍 Track My Ambulance</button>
+    </div>
+
+    <div id="tracker-container">
+      <div id="drx-patient-tracker"></div>
+    </div>
+  </div>
+
+  <script>
+    window.DRX_AMBULANCE_SERVER = window.location.origin;
+
+    // Auto-read bookingId from URL ?bookingId=xxx
+    window.addEventListener('load', () => {
+      const params = new URLSearchParams(window.location.search);
+      const bid = params.get('bookingId');
+      if (bid) {
+        document.getElementById('booking-id-input').value = bid;
+        startTracking();
+      }
+    });
+  </script>
+  <script src="/drx-widget.js"></script>
+  <script>
+    function startTracking() {
+      const bookingId = document.getElementById('booking-id-input').value.trim();
+      if (!bookingId) { alert('Please enter your booking ID'); return; }
+
+      document.getElementById('lookup-card').style.display = 'none';
+      document.getElementById('tracker-container').style.display = 'block';
+
+      DrxAmbulance.initPatient({
+        bookingId: bookingId,
+        containerId: 'drx-patient-tracker'
+      });
+    }
+  </script>
+</body>
+</html>

@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>DrX Consult — Hospital Admin (Demo)</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { background: #f0f4f8; font-family: 'Segoe UI', sans-serif; }
+    .topbar { background: #1a56db; color: #fff; padding: 14px 24px; display: flex; align-items: center; gap: 12px; }
+    .topbar h1 { font-size: 18px; font-weight: 700; }
+    .topbar span { font-size: 13px; opacity: 0.8; }
+    .layout { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; padding: 24px; max-width: 1100px; margin: 0 auto; }
+    @media(max-width:700px){ .layout { grid-template-columns: 1fr; } }
+    .panel { background: #fff; border-radius: 12px; padding: 20px; box-shadow: 0 1px 4px rgba(0,0,0,0.08); }
+    .panel h2 { font-size: 15px; font-weight: 700; color: #111; margin-bottom: 16px; padding-bottom: 10px; border-bottom: 1px solid #e5e7eb; }
+    .form-group { margin-bottom: 12px; }
+    .form-group label { display: block; font-size: 12px; color: #6b7280; margin-bottom: 4px; font-weight: 500; }
+    .form-group input, .form-group select, .form-group textarea {
+      width: 100%; border: 1px solid #d1d5db; border-radius: 7px;
+      padding: 8px 12px; font-size: 13px; outline: none; transition: border-color 0.2s;
+    }
+    .form-group input:focus, .form-group select:focus, .form-group textarea:focus { border-color: #1a56db; }
+    .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .btn-dispatch {
+      width: 100%; background: #e63946; color: #fff; border: none;
+      border-radius: 8px; padding: 12px; font-size: 14px; font-weight: 700;
+      cursor: pointer; transition: opacity 0.2s; margin-top: 4px;
+    }
+    .btn-dispatch:hover { opacity: 0.85; }
+    .btn-dispatch:disabled { background: #9ca3af; cursor: not-allowed; }
+    .log { background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px; padding: 12px; font-size: 12px; font-family: monospace; color: #374151; min-height: 80px; max-height: 120px; overflow-y: auto; margin-top: 12px; }
+    .log .entry { padding: 2px 0; border-bottom: 1px solid #f3f4f6; }
+    .log .entry.ok { color: #059669; }
+    .log .entry.err { color: #dc2626; }
+    .note { background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 8px; padding: 12px 14px; font-size: 12px; color: #1e40af; margin-bottom: 16px; line-height: 1.6; }
+    .note code { background: #dbeafe; padding: 1px 5px; border-radius: 4px; font-family: monospace; }
+  </style>
+</head>
+<body>
+  <div class="topbar">
+    <div>🏥</div>
+    <div>
+      <h1>DrX Consult — Hospital Admin Panel</h1>
+      <span>Demo page showing ambulance widget integration</span>
+    </div>
+  </div>
+
+  <div class="layout">
+    <!-- Left: Dispatch Form -->
+    <div class="panel">
+      <h2>🚨 Send Ambulance Dispatch Request</h2>
+      <div class="note">
+        This simulates what your DrX Consult hospital admin page does when booking an ambulance.
+        The request is sent to the ambulance driver portal via <code>POST /api/dispatch</code>.
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label>Patient Name *</label>
+          <input type="text" id="f-name" value="Ahmed Al-Rashidi" />
+        </div>
+        <div class="form-group">
+          <label>Phone</label>
+          <input type="tel" id="f-phone" value="+968 9123 4567" />
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Age</label>
+          <input type="number" id="f-age" value="45" />
+        </div>
+        <div class="form-group">
+          <label>Priority *</label>
+          <select id="f-priority">
+            <option value="critical">🔴 Critical</option>
+            <option value="high" selected>🟠 High</option>
+            <option value="medium">🟡 Medium</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Condition / Reason *</label>
+        <input type="text" id="f-condition" value="Chest Pain — Possible Cardiac Event" />
+      </div>
+      <div class="form-group">
+        <label>Pickup Address</label>
+        <input type="text" id="f-address" value="Al Khuwair, Muscat, Oman" />
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Pickup Latitude</label>
+          <input type="number" id="f-lat" value="23.5957" step="0.0001" />
+        </div>
+        <div class="form-group">
+          <label>Pickup Longitude</label>
+          <input type="number" id="f-lng" value="58.3927" step="0.0001" />
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Notes</label>
+        <textarea id="f-notes" rows="2">Patient reports severe chest pain radiating to left arm.</textarea>
+      </div>
+      <button class="btn-dispatch" id="dispatch-btn" onclick="sendDispatch()">
+        🚑 Send Dispatch to Ambulance Driver
+      </button>
+      <div class="log" id="log"><div style="color:#9ca3af;">Dispatch log will appear here…</div></div>
+    </div>
+
+    <!-- Right: Live Tracking Widget -->
+    <div class="panel">
+      <h2>📡 Live Ambulance Tracker</h2>
+      <div class="note">
+        This widget is embedded on your DrX Consult page using <code>drx-widget.js</code>.
+        It updates in real-time as the driver shares their location every 5 seconds.
+      </div>
+      <div id="drx-ambulance-tracker"></div>
+    </div>
+  </div>
+
+  <!-- DrX Widget Script -->
+  <script>
+    // Point to your ambulance server
+    window.DRX_AMBULANCE_SERVER = window.location.origin;
+  </script>
+  <script src="/drx-widget.js"></script>
+  <script>
+    let currentBookingId = null;
+
+    // Initialize hospital tracking widget
+    DrxAmbulance.initHospital({
+      hospitalId: 'HOSP-001',
+      containerId: 'drx-ambulance-tracker'
+    });
+
+    function log(msg, type = '') {
+      const logEl = document.getElementById('log');
+      const entry = document.createElement('div');
+      entry.className = `entry ${type}`;
+      entry.textContent = `[${new Date().toLocaleTimeString()}] ${msg}`;
+      logEl.insertBefore(entry, logEl.firstChild);
+    }
+
+    function sendDispatch() {
+      const btn = document.getElementById('dispatch-btn');
+      const name = document.getElementById('f-name').value.trim();
+      const condition = document.getElementById('f-condition').value.trim();
+      if (!name || !condition) { alert('Patient name and condition are required'); return; }
+
+      const bookingId = 'BK-' + Date.now();
+      currentBookingId = bookingId;
+
+      const payload = {
+        requestId: 'REQ-' + Date.now(),
+        patientName: name,
+        patientPhone: document.getElementById('f-phone').value,
+        patientAge: document.getElementById('f-age').value,
+        condition: condition,
+        priority: document.getElementById('f-priority').value,
+        pickupAddress: document.getElementById('f-address').value,
+        pickupLat: parseFloat(document.getElementById('f-lat').value),
+        pickupLng: parseFloat(document.getElementById('f-lng').value),
+        hospitalName: 'Royal Hospital Muscat',
+        hospitalId: 'HOSP-001',
+        bookingId: bookingId,
+        notes: document.getElementById('f-notes').value
+      };
+
+      btn.disabled = true;
+      btn.textContent = 'Sending…';
+
+      DrxAmbulance.dispatch(payload)
+        .then(res => {
+          if (res.success) {
+            log(`✅ Dispatch sent — Request ID: ${res.requestId}`, 'ok');
+            log(`   Booking ID: ${bookingId}`, 'ok');
+            btn.textContent = '✅ Dispatch Sent — Waiting for Driver';
+          } else {
+            log(`❌ Error: ${res.message}`, 'err');
+            btn.disabled = false;
+            btn.textContent = '🚑 Send Dispatch to Ambulance Driver';
+          }
+        })
+        .catch(err => {
+          log(`❌ Network error: ${err.message}`, 'err');
+          btn.disabled = false;
+          btn.textContent = '🚑 Send Dispatch to Ambulance Driver';
+        });
+    }
+  </script>
+</body>
+</html>
