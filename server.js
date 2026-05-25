@@ -138,6 +138,35 @@ app.get('/api/health', (req, res) => {
   });
 });
 
+/**
+ * GET /api/debug
+ * Shows full in-memory state — useful for diagnosing dispatch/tracking issues.
+ */
+app.get('/api/debug', (req, res) => {
+  res.json({
+    dispatchRequests: Object.values(dispatchRequests).map(r => ({
+      requestId: r.requestId,
+      bookingId: r.bookingId,
+      patientName: r.patientName,
+      status: r.status,
+      createdAt: r.createdAt
+    })),
+    activeJobs: Object.values(activeJobs).map(j => ({
+      requestId: j.requestId,
+      bookingId: j.request.bookingId,
+      driverName: j.driver?.driverName,
+      status: j.status,
+      hasLocation: !!j.currentLocation,
+      lastLocation: j.currentLocation
+    })),
+    rooms: {
+      drivers: io.sockets.adapter.rooms.get('drivers')?.size || 0,
+      patientRooms: [...(io.sockets.adapter.rooms.keys() || [])]
+        .filter(r => r.startsWith('patient-'))
+    }
+  });
+});
+
 // ─── Socket.IO ────────────────────────────────────────────────────────────────
 
 io.on('connection', (socket) => {
@@ -185,17 +214,17 @@ io.on('connection', (socket) => {
     socket.to('drivers').emit('request_taken', { requestId });
 
     // ③ Notify DrX Consult patient room — patient sees "driver accepted"
-    io.to(`patient-${request.bookingId}`).emit('driver_accepted', {
+    io.to(`patient-${String(request.bookingId)}`).emit('driver_accepted', {
       requestId,
-      bookingId: request.bookingId,
+      bookingId: String(request.bookingId),
       driver: socket.driverInfo,
       status: 'en_route_to_patient'
     });
 
     // ④ Notify DrX Consult hospital admin room
-    io.to(`hospital-${request.hospitalId}`).emit('driver_accepted', {
+    io.to(`hospital-${String(request.hospitalId)}`).emit('driver_accepted', {
       requestId,
-      bookingId: request.bookingId,
+      bookingId: String(request.bookingId),
       driver: socket.driverInfo,
       status: 'en_route_to_patient'
     });
@@ -225,17 +254,17 @@ io.on('connection', (socket) => {
 
     const payload = {
       requestId,
-      bookingId: job.request.bookingId,
+      bookingId: String(job.request.bookingId),
       location: locationData,
       driver: job.driver,
       jobStatus: job.status
     };
 
     // ── Broadcast to DrX Consult patient (primary consumer) ──
-    io.to(`patient-${job.request.bookingId}`).emit('ambulance_location', payload);
+    io.to(`patient-${String(job.request.bookingId)}`).emit('ambulance_location', payload);
 
     // ── Broadcast to DrX Consult hospital admin ──
-    io.to(`hospital-${job.request.hospitalId}`).emit('ambulance_location', payload);
+    io.to(`hospital-${String(job.request.hospitalId)}`).emit('ambulance_location', payload);
   });
 
   // ── Driver updates job status ─────────────────────────────────────────────
@@ -248,13 +277,13 @@ io.on('connection', (socket) => {
 
     const payload = {
       requestId,
-      bookingId: job.request.bookingId,
+      bookingId: String(job.request.bookingId),
       status,
       timestamp: new Date().toISOString()
     };
 
-    io.to(`patient-${job.request.bookingId}`).emit('job_status_update', payload);
-    io.to(`hospital-${job.request.hospitalId}`).emit('job_status_update', payload);
+    io.to(`patient-${String(job.request.bookingId)}`).emit('job_status_update', payload);
+    io.to(`hospital-${String(job.request.hospitalId)}`).emit('job_status_update', payload);
 
     // Clean up completed jobs after a delay
     if (status === 'delivered') {
@@ -269,17 +298,19 @@ io.on('connection', (socket) => {
   });
 
   // ── DrX Consult patient joins to receive live location ────────────────────
-  // Called from DrX Consult patient dashboard when they open the tracker
   socket.on('patient_connect', ({ bookingId }) => {
-    socket.join(`patient-${bookingId}`);
-    console.log(`[Patient] 👤 Joined room patient-${bookingId}`);
+    const bid = String(bookingId); // ensure string
+    socket.join(`patient-${bid}`);
+    console.log(`[Patient] 👤 Joined room patient-${bid}`);
+    console.log(`[Patient] Active jobs: ${JSON.stringify(Object.keys(activeJobs))}`);
 
     // If there's already an active job for this booking, send last known location immediately
-    const job = Object.values(activeJobs).find(j => j.request.bookingId === bookingId);
+    const job = Object.values(activeJobs).find(j => String(j.request.bookingId) === bid);
     if (job?.currentLocation) {
+      console.log(`[Patient] Sending last known location for booking ${bid}`);
       socket.emit('ambulance_location', {
         requestId: job.requestId,
-        bookingId,
+        bookingId: bid,
         location: job.currentLocation,
         driver: job.driver,
         jobStatus: job.status
@@ -288,7 +319,7 @@ io.on('connection', (socket) => {
     if (job) {
       socket.emit('driver_accepted', {
         requestId: job.requestId,
-        bookingId,
+        bookingId: bid,
         driver: job.driver,
         status: job.status
       });
